@@ -4,7 +4,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from src.Decoder import Decoder
 from src.SegNet import SegNet
-from src.utils import create_batch
+from src.utils import create_epoch
 
 # Training parameters
 device = 'cuda'            # 'cuda' or 'cpu' ('cpu' never tested)
@@ -12,10 +12,10 @@ load_model = False         # if False, create a new networks
 epoch_to_load = None       # None for last epoch; not used if load_model == False
 n_epochs_to_run = 100      # from the last epoch if load_model == True
 n_epoch_save = 5           # will save a new checkpoint every n_epoch_save
-learning_rate = 1e-6       # is modified by the scheduler
+learning_rate = 1e-5       # is modified by the scheduler
 learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 10)), 'gamma': 0.5}
-batch_size_train = 64      # try larger and larger values, until it does not fit
-batch_size_valid = 128     # faster because no need to loss.backward()
+batch_size_train = 16      # try larger and larger values, until it does not fit
+batch_size_valid = 32      # faster because no need to loss.backward()
 batches_per_epoch_train = 30
 batches_per_epoch_valid = 2
 n_samples_per_epoch_train = batch_size_train*batches_per_epoch_valid
@@ -27,7 +27,7 @@ n_frames = 20
 train_mode = 'V'
 
 # Mother and decoder net
-mother_name = 'PredNet_TA0_PR20-0_SM3-0_SB1-0_SD1-0_CB1-0_CD1-0_AC(3-16-64)_RC(16-64-128)_RL(h-h-h)_FS(3-3-3)_PL(1-0-0)_SL(0-1-0)_CL(0-0-1)'
+mother_name = 'PredNet_TA0_JP0-0_PR1-0_SM0-0_SB0-0_SD0-0_AC(3-32)_RC(32-64)_RL(h-h)_FS(3-3)_PL(1-1)_SL(0-0)'
 mother, _, _, _, _ = SegNet.load_model(mother_name)
 n_inputs = sum([mother.r_channels[:-1][l]*(64//(2**l))**2 for l in decoded_layers])
 decoder_name = f'Decoder_NI{n_inputs}'
@@ -49,7 +49,7 @@ for i in range(n_epochs_to_run):
     batch = data.narrow(dim=0, start=i*batch_size_train, length=batch_size_train)
     label = labels.narrow(dim=0, start=i*batch_size_train, length=batch_size_train)
     with torch.no_grad():
-      E_seq, R_seq, P_seq, S_seq, C_seq = mother(batch)
+      E_seq, R_seq, P_seq, S_seq = mother(batch)
 
     # R_seq dim: [n_layers][n_frames][batch_sizes, r_channels, w, h]
     input_ = [None for t in range(n_frames)]
@@ -61,7 +61,8 @@ for i in range(n_epochs_to_run):
     D_seq = torch.zeros(batch_size_train, 2, n_frames).cuda()
     for t in range(n_frames):
       D_seq[..., t] = decoder(input_[t])
-    decoding = D_seq[..., :].mean(axis=-1)  # .squeeze()
+    # decoding = D_seq[..., :].mean(axis=-1)  # .squeeze()
+    decoding = D_seq[..., 10]
 
     loss = loss_fn(decoding, label)
     loss.backward()
@@ -70,13 +71,20 @@ for i in range(n_epochs_to_run):
     decoding = torch.argmax(decoding.detach(),dim=1)    
     n_correct += (decoding.long()==label).sum()
 
-    plot_predictions = True
+    plot_predictions = False
     if plot_predictions:
       for t in range(n_frames):
         plt.imshow(S_seq[0, ..., t].detach().cpu().permute((1,2,0)))
         plt.show()
 
+    plot_input = True
+    if plot_input:
+      for t in range(n_frames):
+        plt.imshow(batch[0, ..., t].detach().cpu().permute((1,2,0)))
+        plt.title(label[0].detach().cpu())
+        plt.show()
+
   epoch_loss /= (n_samples_per_epoch_train)
   epoch_losses.append(epoch_loss)
-  accuracy = n_correct/(batch_size_train*batches_per_epoch)
+  accuracy = n_correct/(batch_size_train*batches_per_epoch_train)
   print(f'Epoch accuracy: {accuracy}, epoch loss: {epoch_loss}')

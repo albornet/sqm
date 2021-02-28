@@ -229,13 +229,14 @@ class SegNet(nn.Module):
   def load_model(cls, model_name, epoch_to_load=None):
 
     ckpt_dir = f'./ckpt/{model_name}/'
-    ckpt_path = os.listdir(ckpt_dir)[-1]  # take last checkpoint (default)
-    for ckpt in os.listdir(ckpt_dir):
+    list_dir = [c for c in os.listdir(ckpt_dir) if '.pt' in c]
+    ckpt_path = list_dir[-1]  # take last checkpoint (default)
+    for ckpt in list_dir:
       if str(epoch_to_load) in ckpt.split('_')[-1]:
         ckpt_path = ckpt
     save = torch.load(ckpt_dir + ckpt_path)
     model = cls(
-      model_name=save['model_name'],
+      model_name=model_name,
       device=save['device'],
       A_channels=save['A_channels'],
       R_channels=save['R_channels'][:-1],

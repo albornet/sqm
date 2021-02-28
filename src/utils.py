@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import time
+import torch
+
 
 def vernier_patch(image_dims, barH, barW, spaceH, offsetW, brightness, side):
   spaceW = offsetW - barW
@@ -40,8 +41,8 @@ def choose_random_params(image_dims, n_frames, mode=None):
   params2['d_col'] = -params1['d_col']
   if mode is not None:
     if mode == 'V':
-      params1['offsetW'] = np.array([offset,] + [0]*n_frames-1)
-      params2['offsetW'] = np.array([offset,] + [0]*n_frames-1)
+      params1['offsetW'] = np.array([offset,] + [0]*(n_frames-1))
+      params2['offsetW'] = np.array([offset,] + [0]*(n_frames-1))
     if 'V-AV' in mode or 'V-PV' in mode:
       APV_frame = int(mode[-1])
       APV_offset = -offset if 'V-AV' in mode else offset
@@ -64,14 +65,14 @@ def draw_sequence(image_dims, n_frames, mode=None):
         offsetW=p['offsetW'][t], side=p['side'][t], brightness=p['brightness'])
       place_patch(image_dims, frame, patch, p['row_0'] + t*p['d_row'], p['col_0'] + t*p['d_col'])
     sequence[t] = frame
-  return sequence.clip(max=1.0), p1['side'][0]
+  return sequence.clip(max=p1['brightness']), p1['side'][0]
 
 def create_epoch(n_samples, image_dims, n_frames, mode=None):
   samples = np.zeros((n_samples, n_frames) + image_dims)
   labels = np.zeros((n_samples))
   for b in range(n_samples):
-    sample, label = draw_sequence(image_dims, n_framesmode=mode)
+    sample, label = draw_sequence(image_dims, n_frames, mode=mode)
     samples[b] = sample
     labels[b] = label
   samples = samples.transpose((0, 4, 2, 3, 1))  # for torch (channels after batch, frames last)
-  return torch.from_numpy(samples).cuda(), torch.from_numpy(labels).cuda()
+  return torch.from_numpy(samples).float().cuda(), torch.from_numpy(labels).long().cuda()
