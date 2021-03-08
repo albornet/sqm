@@ -11,30 +11,30 @@ from src.Jacobian_penalty import jacobian_penalty
 device = 'cuda'            # 'cuda' or 'cpu' ('cpu' never tested)
 load_model = False         # if False, create a new networks
 epoch_to_load = None       # None for last epoch; not used if load_model == False
-n_epochs_to_run = 50       # from the last epoch if load_model == True
+n_epochs_to_run = 20       # from the last epoch if load_model == True
 n_epoch_save = 5           # will save a new checkpoint every n_epoch_save
-learning_rate = 0.0001     # is modified by the scheduler
-learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 10)), 'gamma': 0.5}
+learning_rate = 0.001      # is modified by the scheduler
+learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 5)), 'gamma': 0.5}
 P_red_loss_weight = 1.0    # unsupervised loss (try running and adjust)
-S_mse_loss_weight = 0.0    # supervised loss (segmentation, mean square error)
-S_bce_loss_weight = 0.0    # supervised loss (segmentation, cross-entropy)
-S_dic_loss_weight = 0.0    # supervised loss (segmentation, 1.0 - dice score)
-J_pen_loss_weight = 1.0    # unsupervised loss (convergence to dynamical stability)
+S_mse_loss_weight = 3.0    # supervised loss (segmentation, mean square error)
+S_bce_loss_weight = 1.0    # supervised loss (segmentation, cross-entropy)
+S_dic_loss_weight = 1.0    # supervised loss (segmentation, 1.0 - dice score)
+J_pen_loss_weight = 0.0    # unsupervised loss (convergence to dynamical stability)
 batch_size_train = 16      # try larger and larger values, until it does not fit
 batch_size_valid = 96      # faster because no need to loss.backward()
 bce_loss_fn = torch.nn.BCELoss()
 
 # Network parameters
-R_channels = (32, 64) #, 64)             # for each layer, top-down feature dimensionality
-A_channels = ( 3, 32) #, 32)             # for each layer, bottom-up feature dimensionality
-R_layers = ('hgru', 'hgru') #, 'hgru')   # for each layer, type of representation
-P_layers = (1, 1) #, 1)                  # for each layer, which E are used in the pred_loss
-S_layers = (0, 0) #, 1)                  # for each layer, whether R output is sent to the segmentation layer
-J_layers = (0, 1) #, 0)                  # which layer is used in jacobian penalty calculations
-J_times = [10]             # which time_steps are used for Jacobian penalty calculations
-filter_sizes = (3, 3) #, 3)              # between each layer, size of the convolutions
-do_time_aligned = True                   # if True, take neuronal delays into account
-do_dopamine_mode = False                 # pred loss triggers learning in other losses (factor of lr)
+R_channels = (16, 32, 64, 128, 256)                  # for each layer, top-down feature dimensionality
+A_channels = ( 3, 16, 32,  64, 128)                  # for each layer, bottom-up feature dimensionality
+R_layers = ('hgru', 'hgru', 'hgru', 'hgru', 'hgru')  # for each layer, type of representation
+P_layers = (1, 1, 1, 1, 1)                           # for each layer, which E are used in the pred_loss
+S_layers = (0, 0, 0, 0, 1)                           # for each layer, whether R output is sent to the segmentation layer
+J_layers = (0, 0, 0, 0, 0)                           # which layer is used in jacobian penalty calculations
+J_times = []                                         # which time_steps are used for Jacobian penalty calculations
+filter_sizes = (5, 5, 5, 5, 5)                       # between each layer, size of the convolutions
+do_time_aligned = True                               # if True, take neuronal delays into account
+do_dopamine_mode = False                             # pred loss triggers learning in other losses (factor of lr)
 do_prediction = P_red_loss_weight > 0.0
 do_segmentation = (S_mse_loss_weight + S_bce_loss_weight + S_dic_loss_weight) > 0.0
 do_jacobian_penalty = J_pen_loss_weight > 0
@@ -42,7 +42,7 @@ if do_jacobian_penalty:
   mu = 0.5  # jacobain penalty scaling parameter
 if do_dopamine_mode:
     do_prediction = True  # even if pred weight is 0.0
-model_name = f'PredNet_TA{int(do_time_aligned)}_JP{J_pen_loss_weight}'\
+model_name = f'PredNet_TA{int(do_time_aligned)}_DM{int(do_dopamine_mode)}_JP{J_pen_loss_weight}'\
             +f'_PR{P_red_loss_weight}_SM{S_mse_loss_weight}_SB{S_bce_loss_weight}'\
             +f'_SD{S_dic_loss_weight}_AC{A_channels}_RC{R_channels}_RL{tuple([r[0] for r in R_layers])}'\
             +f'_FS{filter_sizes}_PL{P_layers}_SL{S_layers}'
@@ -52,16 +52,16 @@ S_layers = [l for l, e in enumerate(S_layers) if e == 1]  # for convenience, e.g
 J_layers = [l for l, e in enumerate(J_layers) if e == 1]  # for convenience, e.g. [1, 0, 0, 1] --> [0, 3]
 
 # Dataset parameters
-h5_path = 'data/training_room_dataset_04.h5' # dataset path ()
-n_samples = 10000             # number of samples in the dataset
-n_classes = 4                 # n_object_types + 1 (for "nothing")
-tr_ratio = 0.85               # training vs validation ratio 0.85/0.15
-speed_up_factor = 1           # every speed_up frame given to the network (random first frame)
-t_start_loss = 1              # number of frames ignored in the loss, after first one
-occlusion = 0                 # add occluding bars to all images
-augmentation = 1              # data augmentation on the dataset (albumentations)  slowdown???
-dvs_mode = 0                  # use dvs image samples (else normal images) POS IS [255 255 0], NEG IS [0 255 0]
-remove_ground = 1             # have no class for groung in segmentation labels
+h5_path = 'data/training_room_dataset_04.h5'  # dataset path ()
+n_samples = 10000                             # number of samples in the dataset
+n_classes = 4                                 # n_object_types + 1 (for "nothing")
+tr_ratio = 0.85                               # training vs validation ratio 0.85/0.15
+speed_up_factor = 1                           # every speed_up frame given to the network (random first frame)
+t_start_loss = 1                              # number of frames ignored in the loss, after first one
+occlusion = 0                                 # add occluding bars to all images
+augmentation = 1                              # data augmentation on the dataset (albumentations)  slowdown???
+dvs_mode = 0                                  # use dvs image samples (else normal images) POS IS [255 255 0], NEG IS [0 255 0]
+remove_ground = 1                             # have no class for groung in segmentation labels
 if remove_ground:
     n_classes -= 1
 
@@ -108,14 +108,14 @@ def loss_fn(E_seq, R_seq, S_seq, S_lbl, batch_idx, n_batches, mode='train'):
     for t in range(t_start_loss, n_frames):       
     
         # Prediction loss E_seq is [n_frames, n_layers][batch_size, a_channels[l]*2, w, h]
-        if do_prediction:
+        if do_prediction or do_dopamine_mode:
             P_red_loss_t = torch.zeros((batch_size,)).cuda()
             for l in P_layers:
                 P_red_loss_t += E_seq[l][t].mean(axis=(-3, -2, -1))
             P_red_loss_t = P_red_loss_t/len(P_layers)
             P_red_loss += P_red_loss_weight*P_red_loss_t
-            D_opa_signal[:, t] = P_red_loss_t.detach()
-        D_opa_signal /= D_opa_signal.sum(axis=1, keepdim=True)  # divide every sample sequence by the sum over frames
+            if do_dopamine_mode:
+                D_opa_signal[:, t] = P_red_loss_t.detach()
 
         # Jacobian penalty (/loss)]
         if mode == 'train' and do_jacobian_penalty and t in J_times:
@@ -129,6 +129,7 @@ def loss_fn(E_seq, R_seq, S_seq, S_lbl, batch_idx, n_batches, mode='train'):
             J_pen_signal[:, t] = j_penalty.detach().cpu()
 
     # Then supervised losses (which may be modulated by the unsupervised losses
+    D_opa_signal /= D_opa_signal.sum(axis=1, keepdim=True)  # normalize every signal sequence over the time dimension
     for t in range(t_start_loss, n_frames):
 
         # Segmentation losses (supervised) S_seq is [batch_size, n_classes, w, h, n_frames]

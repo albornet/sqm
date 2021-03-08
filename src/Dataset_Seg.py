@@ -18,7 +18,7 @@ def add_bar(input_):
 transform = A.Compose([
     A.OneOf([
         A.RandomSizedCrop(min_max_height=(50, 63), height=64, width=64, p=0.5),
-        A.PadIfNeeded(min_height=64, min_width=64, p=0.5)], p=1),    
+        A.PadIfNeeded(min_height=64, min_width=64, p=0.5)], p=1),
     A.HorizontalFlip(p=0.5),              
     A.Rotate(limit=(-10, 10), p=1.0),
     A.RandomBrightnessContrast(p=1.0),    
@@ -34,7 +34,7 @@ class H5Dataset_Seg(data.Dataset):
     super(H5Dataset_Seg, self).__init__()
     self.augmentation = augmentation
     sample_dataset = 'dvs_samples' if dvs else 'rgb_samples'
-    with h5py.File(h5_path, 'r') as f:  # sample dims for pytorch: (batch_id, channel, row, column, frame_id)
+    with h5py.File(h5_path, 'r') as f:  # sample dims from numpy: (batch_id, frame_id, row, column, channel)
       self.img_samples = np.array(f.get(sample_dataset))[from_to[0]: from_to[1]] #.transpose(0,-1,2,3,1)
       self.lbl_segment = np.array(f.get('lbl_grouping'))[from_to[0]: from_to[1]] #.transpose(0,-1,2,3,1) #[:, 1:, ...]
       self.lbl_classif = np.array(f.get('lbl_visibles'))[from_to[0]: from_to[1]]
@@ -44,12 +44,26 @@ class H5Dataset_Seg(data.Dataset):
       if not self.augmentation:
         self.img_samples = self.img_samples.transpose(0,-1,2,3,1)
         self.lbl_segment = self.lbl_segment.transpose(0,-1,2,3,1)
+      if dvs:
+        for b in range(self.img_samples.shape[0]):
+          for t in range(self.img_samples.shape[1]):
+            frame = self.img_samples[b, t]
+            frame[frame.sum(axis=-1) == 2*255] = [255, 255, 255]
+            frame[frame.sum(axis=-1) == 0*255] = [127, 127, 127]
+            frame[frame.sum(axis=-1) == 1*255] = [  0,   0,   0]
+            self.img_samples[b, t] = frame
+
         
   def __getitem__(self, index):
     lbl_class = torch.from_numpy(self.lbl_classif[index]).float()
     if self.augmentation:
       n_frames = self.img_samples.shape[1]
       samples = self.img_samples[index]
+
+      # for t in range(20):
+      #   plt.imshow(samples[t])
+      #   plt.show()
+
       lbl_segm = self.lbl_segment[index]
       sample0 = samples[0]
       sampleT = {f'image{t}': samples[t] for t in range(1, n_frames)}

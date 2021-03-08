@@ -40,7 +40,6 @@ class SegNet(nn.Module):
       upsample = nn.ConvTranspose2d(
         in_channels=self.r_channels[l],
         out_channels=self.r_channels[l],
-        # kernel_size=2, stride=2)
         kernel_size=self.filter_sizes[l], stride=2, padding=self.filter_pads[l], output_padding=1)
       setattr(self, 'upsample{}'.format(l), upsample)
     
@@ -78,12 +77,17 @@ class SegNet(nn.Module):
             kernel_size=self.filter_sizes[l],
             padding=self.filter_pads[l]),
           nn.ReLU())
-          # nn.Dropout(p=0.1))
         if l == 0:
           conv_pred.add_module('satlu', SatLU())
         setattr(self, 'conv_pred{}'.format(l), conv_pred)
 
-    # Initialize input part for all layers ("A[l] -> A[l+1]")
+    # Dropout layers just before input
+    dropout_rates = [0.20, 0.35, 0.35, 0.35, 0.35]
+    for l in range(self.n_layers):
+      dropout_A = nn.Dropout(p=dropout_rates[l])
+      setattr(self, 'dropout_A{}'.format(l), dropout_A)
+
+    # Initialize input part for all layers ("A[l]-P[l] -> A[l+1]")
     for l in range(self.n_layers - 1):
       update_A = nn.Sequential(
         nn.Conv2d(
@@ -92,7 +96,6 @@ class SegNet(nn.Module):
           kernel_size=self.filter_sizes[l],
           padding=self.filter_pads[l]),
         nn.MaxPool2d(kernel_size=2, stride=2))
-        # nn.Dropout(p=0.1))
       setattr(self, 'update_A{}'.format(l), update_A)
 
     # Initialize segmentation part
@@ -105,20 +108,17 @@ class SegNet(nn.Module):
               nn.ConvTranspose2d(
                 in_channels=self.r_channels[l],
                 out_channels=self.r_channels[l],
-                # kernel_size=2, stride=2),
                 kernel_size=3, stride=2, padding=1, output_padding=1),
-              nn.BatchNorm2d(self.r_channels[l])))
-              # nn.Dropout(p=0.1)))
+              nn.InstanceNorm2d(self.r_channels[l])))
         upsample_segm = nn.Sequential(*upsample_list)
         setattr(self, 'upsample_segm{}'.format(l), upsample_segm)
       input_channels = sum([self.r_channels[l] for l in self.s_layers])
       self.conv_segm = nn.Sequential(
-        # nn.Dropout(p=0.1),
         nn.Conv2d(
           in_channels=input_channels,
           out_channels=self.n_classes,
-          kernel_size=3,  # 1
-          padding=1),  # 0
+          kernel_size=3,
+          padding=1),
         nn.Sigmoid())
 
     # Put the model on the correct device
@@ -168,6 +168,8 @@ class SegNet(nn.Module):
 
       # Bottom-up pass
       for l in range(self.n_layers):
+        dropout_A = getattr(self, 'dropout_A{}'.format(l))
+        A = dropout_A(A)
         if self.do_prediction:
           conv_pred = getattr(self, 'conv_pred{}'.format(l))
           A_hat = conv_pred(R_seq[l][t-TA])
@@ -182,7 +184,7 @@ class SegNet(nn.Module):
           update_A = getattr(self, 'update_A{}'.format(l))
           A = update_A(E_seq[l][t-TA])  # fed to E_seq[l+1]
 
-        # Segmentation
+      # Segmentation
       if self.do_segmentation:
         S_input = [None for l in self.s_layers]
         for i, l in enumerate(self.s_layers):
@@ -229,7 +231,7 @@ class SegNet(nn.Module):
   def load_model(cls, model_name, epoch_to_load=None):
 
     ckpt_dir = f'./ckpt/{model_name}/'
-    list_dir = [c for c in os.listdir(ckpt_dir) if '.pt' in c]
+    list_dir = [c for c in os.listdir(ckpt_dir) if ('decoder' not in c and '.pt' in c)]
     ckpt_path = list_dir[-1]  # take last checkpoint (default)
     for ckpt in list_dir:
       if str(epoch_to_load) in ckpt.split('_')[-1]:
