@@ -82,7 +82,9 @@ class SegNet(nn.Module):
         setattr(self, 'conv_pred{}'.format(l), conv_pred)
 
     # Dropout layers just before input
-    dropout_rates = [0.20, 0.35, 0.35, 0.35, 0.35]
+    dropout_rates = [0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
+    # dropout_rates = [0.10, 0.10, 0.10, 0.10, 0.10, 0.10]
+    # dropout_rates = [0.20, 0.50, 0.50, 0.50, 0.50, 0.50]
     for l in range(self.n_layers):
       dropout_A = nn.Dropout(p=dropout_rates[l])
       setattr(self, 'dropout_A{}'.format(l), dropout_A)

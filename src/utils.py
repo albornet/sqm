@@ -55,14 +55,11 @@ def choose_random_params(image_dims, n_frames, mode=None):
   params2 = {key: value for key, value in params1.items()}
   params2['d_col'] = -params1['d_col']
   if mode is not None:
+    offset = 1
     if 'V-' in mode:  # for tests
-      offset = 1
-      params1['background_frames'] = 3
-      params1['background_color'] = 0.1
-      params1['barH'] = 15
+      params1['barH'] = 10
       params1['barW'] = 1
       params1['spaceH'] = 1
-      params1['brightness'] = 0.9
       params1['row_0'] = image_dims[0]//2
       params1['col_0'] = image_dims[1]//2
       params1['d_row'] = 0

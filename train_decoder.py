@@ -8,10 +8,10 @@ from src.utils import create_epoch
 
 # Training parameters
 device = 'cuda'            # 'cuda' or 'cpu' ('cpu' never tested)
-load_model = False         # if False, create a new networks
+load_model = True         # if False, create a new networks
 epoch_to_load = None       # None for last epoch; not used if load_model == False
-n_epochs_to_run = 100      # from the last epoch if load_model == True
-n_epoch_save = 5          # will save a new checkpoint every n_epoch_save
+n_epochs_to_run = 50      # from the last epoch if load_model == True
+n_epoch_save = 5           # will save a new checkpoint every n_epoch_save
 learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 50)), 'gamma': 0.5}
 batch_size_train = 32      # try larger and larger values, until it does not fit
 batch_size_valid = 32
@@ -28,11 +28,13 @@ do_transform = False
 do_dvs = False
 do_frame_concat = False
 n_hidden_decoder = [64] if do_frame_concat else [512, 64]
-learning_rate = 1e-6  # if do_frame_concat else 1e-5
+learning_rate = 1e-5  # if do_frame_concat else 1e-5
+plot_frames = False
+loss_fn = nn.CrossEntropyLoss()  # nn.BCEWithLogitsLoss()
 
 # Mother and decoder net
-mother_dir = 'DROPOUT_02_05'  # 'DROPOUT_01_01', 'DROPOUT_02_05', 'DROUPOUT_00_00', '' (for BigNet)
-mother_type = 'PredNetTA'  # 'PredNet', 'PredNetTA', 'PredSegNetTA'
+mother_dir = 'DROPOUT_01_01'  # 'DROPOUT_01_01', 'DROPOUT_02_05', 'DROUPOUT_00_00', '' (for BigNet)
+mother_type = 'PredSegNetTA'  # 'PredNet', 'PredNetTA', 'PredSegNetTA'
 if mother_type == 'PredNet':
   mother_name = 'PredNet_TA0_DM0_JP0-0_PR1-0_SM0-0_SB0-0_SD0-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-0)'
 elif mother_type == 'PredNetTA':
@@ -50,15 +52,21 @@ mother.eval()
 n_inputs = sum([mother.r_channels[:-1][l]*(64//(2**l))**2 for l in decoded_layers])
 if do_frame_concat:
   n_inputs *= n_frames
-decoder = Decoder(n_inputs, n_hidden_decoder, mother_name, device)
-optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, 2*n_epochs_to_run, n_epoch_save)), gamma=0.5)
-loss_fn = nn.CrossEntropyLoss()  # nn.BCEWithLogitsLoss()
+if load_model:
+  decoder, optimizer, scheduler, epoch_losses, epoch_accurs = Decoder.load_model(mother_name)
+  epochs_already_done = scheduler.last_epoch
+  # print(epochs_already_done)
+  # exit()
+else:
+  decoder = Decoder(n_inputs, n_hidden_decoder, mother_name, device)
+  optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
+  scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, 2*n_epochs_to_run, n_epoch_save)), gamma=0.5)
+  epochs_already_done = 0
+  epoch_losses = []
+  epoch_accurs = []
 
 # Decoder training loop
-epoch_losses = []
-epoch_accurs = []
-for e in range(n_epochs_to_run):
+for e in range(epochs_already_done, n_epochs_to_run):
   decoder.train()
   batch_losses = []
   data, labels = create_epoch(n_samples_per_epoch_train, image_dims, n_frames,
@@ -106,8 +114,7 @@ for e in range(n_epochs_to_run):
     prediction = torch.argmax(decoding.detach(), dim=1)
     n_correct += (prediction.long()==label).sum()
 
-    plot = False
-    if plot:
+    if plot_frames:
       for t in range(n_frames):
         plt.subplot(1, 4, 1)
         plt.imshow(batch[0, ..., t].detach().cpu().permute((1,2,0)))
@@ -128,29 +135,3 @@ for e in range(n_epochs_to_run):
   print(f'Epoch {e} train accuracy: {epoch_accur}, train loss: {epoch_loss}')
   if (e + 1) % n_epoch_save == 0:
       decoder.save_model(optimizer, scheduler, epoch_losses, epoch_accurs)
-  
-  # # Small stupid validation
-  # decoder.eval()
-  # valid_batch, valid_labels = create_epoch(n_samples_per_epoch_valid, image_dims,
-  #   n_frames, do_dvs=do_dvs, do_transform=do_transform, mode=train_mode)
-  # with torch.no_grad():
-  #   n_correct = 0
-  #   for i in range(batches_per_epoch_valid): 
-  #     vbatch = data.narrow(dim=0, start=i*batch_size_valid, length=batch_size_valid)
-  #     vlabel = labels.narrow(dim=0, start=i*batch_size_valid, length=batch_size_valid)
-  #     E_seq, R_seq, P_seq, S_seq = mother(vbatch)
-  #     I_seq = [None for t in range(n_frames)]
-  #     for t in range(n_frames):
-  #       I_seq[t] = torch.stack(
-  #         [R_seq[l][t].view(batch_size_valid, -1) for l in decoded_layers], dim=1)
-  #     if do_frame_concat:
-  #       input_ = torch.cat([I_seq[t] for t in range(n_frames)], dim=1)
-  #       decoding = decoder(input_)
-  #     else:
-  #       decoding = torch.zeros((batch_size_valid, 2)).cuda()
-  #       for t in range(3, n_frames):
-  #         decoding += decoder(I_seq[t])/(n_frames-3)
-  #     prediction = torch.argmax(decoding.detach(),dim=1)
-  #     n_correct += (prediction.long()==vlabel).sum()
-  #   accuracy = n_correct/n_samples_per_epoch_valid
-  #   print(f'\tvalid accuracy: {accuracy}')
