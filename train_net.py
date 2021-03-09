@@ -25,14 +25,14 @@ batch_size_valid = 96      # faster because no need to loss.backward()
 bce_loss_fn = torch.nn.BCELoss()
 
 # Network parameters
-R_channels = ( 8, 16, 32, 64, 128) #, 256)                  # for each layer, top-down feature dimensionality
-A_channels = ( 3,  8, 16, 32,  64) #, 128)                  # for each layer, bottom-up feature dimensionality
-R_layers = ('hgru', 'hgru', 'hgru', 'hgru', 'hgru') #, 'hgru')  # for each layer, type of representation
-P_layers = (1, 1, 1, 1, 1) #, 1)                           # for each layer, which E are used in the pred_loss
-S_layers = (1, 1, 1, 1, 1) #, 1)                           # for each layer, whether R output is sent to the segmentation layer
-J_layers = (0, 0, 0, 0, 0) #, 0)                           # which layer is used in jacobian penalty calculations
+R_channels = ( 8, 16, 32, 64, 128)                   # for each layer, top-down feature dimensionality
+A_channels = ( 3,  8, 16, 32,  64)                   # for each layer, bottom-up feature dimensionality
+R_layers = ('hgru', 'hgru', 'hgru', 'hgru', 'hgru')  # for each layer, type of representation
+P_layers = (1, 1, 1, 1, 1)                           # for each layer, which E are used in the pred_loss
+S_layers = (1, 1, 1, 1, 1)                           # for each layer, whether R output is sent to the segmentation layer
+J_layers = (0, 0, 0, 0, 0)                           # which layer is used in jacobian penalty calculations
 J_times = []                                         # which time_steps are used for Jacobian penalty calculations
-filter_sizes = (5, 5, 5, 5, 5) #, 5)                       # between each layer, size of the convolutions
+filter_sizes = (5, 5, 5, 5, 5)                       # between each layer, size of the convolutions
 do_time_aligned = True                               # if True, take neuronal delays into account
 do_dopamine_mode = False                             # pred loss triggers learning in other losses (factor of lr)
 do_prediction = P_red_loss_weight > 0.0

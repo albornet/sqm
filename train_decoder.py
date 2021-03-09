@@ -8,7 +8,7 @@ from src.utils import create_epoch
 
 # Training parameters
 device = 'cuda'            # 'cuda' or 'cpu' ('cpu' never tested)
-load_model = True         # if False, create a new networks
+load_model = False         # if False, create a new networks
 epoch_to_load = None       # None for last epoch; not used if load_model == False
 n_epochs_to_run = 50      # from the last epoch if load_model == True
 n_epoch_save = 5           # will save a new checkpoint every n_epoch_save
@@ -28,13 +28,13 @@ do_transform = False
 do_dvs = False
 do_frame_concat = False
 n_hidden_decoder = [64] if do_frame_concat else [512, 64]
-learning_rate = 1e-5  # if do_frame_concat else 1e-5
+learning_rate = 1e-6
 plot_frames = False
-loss_fn = nn.CrossEntropyLoss()  # nn.BCEWithLogitsLoss()
+loss_fn = nn.CrossEntropyLoss()
 
 # Mother and decoder net
-mother_dir = 'DROPOUT_01_01'  # 'DROPOUT_01_01', 'DROPOUT_02_05', 'DROUPOUT_00_00', '' (for BigNet)
-mother_type = 'PredSegNetTA'  # 'PredNet', 'PredNetTA', 'PredSegNetTA'
+mother_dir = 'DROPOUT_02_05'  # 'DROPOUT_01_01', 'DROPOUT_02_05', 'DROUPOUT_00_00', '' (for BigNet)
+mother_type = 'PredNet'  # 'PredNet', 'PredNetTA', 'PredSegNetTA'
 if mother_type == 'PredNet':
   mother_name = 'PredNet_TA0_DM0_JP0-0_PR1-0_SM0-0_SB0-0_SD0-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-0)'
 elif mother_type == 'PredNetTA':
