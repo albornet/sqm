@@ -1,3 +1,5 @@
+# Taken from: https://github.com/c-rbp/pathfinder_experiments/blob/main/models/hgrucleanSEG.py
+# Paper: https://arxiv.org/abs/2005.11362
 import torch
 
 def jacobian_penalty(state, prev_state, mu):

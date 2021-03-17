@@ -7,7 +7,7 @@ from src.Dataset_Seg import get_datasets_seg
 
 # Parameters
 epoch_to_load = 'None'  # 'None' if take last checkpoint
-model_name = 'PredNet_TA1_DM0_JP0-0_PR1-0_SM3-0_SB1-0_SD1-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-1)'
+model_name = 'THRESH_1/DROPOUT_01_01/PredNet_TA1_DM0_JP0-0_PR1-0_SM0-0_SB0-0_SD0-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-0)'
 h5_path = 'data/training_room_dataset_04.h5' # dataset path
 n_samples = 1000  # number of samples in the dataset
 tr_ratio = 0.85 # only validation samples

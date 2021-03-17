@@ -1,4 +1,3 @@
-# Mount drive folder (remove all this if not on drive!)
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -6,11 +5,22 @@ from src.Decoder import Decoder
 from src.SegNet import SegNet
 from src.utils import create_epoch
 
+# Arguments
+import argparse
+parser = argparse.ArgumentParser(description='Model directory and model type')
+parser.add_argument("--thr")
+parser.add_argument("--dir")
+parser.add_argument("--typ")
+args = parser.parse_args()
+confidence_treshold = float(args.thr[-1])
+mother_dir = args.dir
+mother_type = args.typ
+
 # Training parameters
 device = 'cuda'            # 'cuda' or 'cpu' ('cpu' never tested)
 load_model = False         # if False, create a new networks
 epoch_to_load = None       # None for last epoch; not used if load_model == False
-n_epochs_to_run = 50      # from the last epoch if load_model == True
+n_epochs_to_run = 50       # from the last epoch if load_model == True
 n_epoch_save = 5           # will save a new checkpoint every n_epoch_save
 learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 50)), 'gamma': 0.5}
 batch_size_train = 32      # try larger and larger values, until it does not fit
@@ -33,20 +43,20 @@ plot_frames = False
 loss_fn = nn.CrossEntropyLoss()
 
 # Mother and decoder net
-mother_dir = 'DROPOUT_02_05'  # 'DROPOUT_01_01', 'DROPOUT_02_05', 'DROUPOUT_00_00', '' (for BigNet)
-mother_type = 'PredNet'  # 'PredNet', 'PredNetTA', 'PredSegNetTA'
+# mother_dir = 'DROPOUT_01_01'  # 'DROPOUT_01_01', 'DROPOUT_02_05', 'DROPOUT_00_00'
+# mother_type = 'PredSegNetTA'  # 'PredNet', 'PredNetTA', 'PredSegNetTA'
+# confidence_treshold = 1.0
 if mother_type == 'PredNet':
   mother_name = 'PredNet_TA0_DM0_JP0-0_PR1-0_SM0-0_SB0-0_SD0-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-0)'
 elif mother_type == 'PredNetTA':
   mother_name = 'PredNet_TA1_DM0_JP0-0_PR1-0_SM0-0_SB0-0_SD0-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-0)'
 elif mother_type == 'PredSegNetTA':
   mother_name = 'PredNet_TA1_DM0_JP0-0_PR1-0_SM3-0_SB1-0_SD1-0_AC(3-16)_RC(16-64)_RL(h-h)_FS(5-5)_PL(1-1)_SL(0-1)'
-elif mother_type == 'BigNet':
-  mother_name = ''
 else:
-  print('Bad name, check the mother type or name?')
+  print('Bad model dir or type.')
   exit()
-mother_name = mother_dir + '/' + mother_name
+mother_name = 'THRESH_' + args.thr[-1] + '/' + mother_dir + '/' + mother_name
+print(f'Loading model and decoder at {mother_name}')
 mother, _, _, _, _ = SegNet.load_model(mother_name)
 mother.eval()
 n_inputs = sum([mother.r_channels[:-1][l]*(64//(2**l))**2 for l in decoded_layers])
@@ -55,8 +65,6 @@ if do_frame_concat:
 if load_model:
   decoder, optimizer, scheduler, epoch_losses, epoch_accurs = Decoder.load_model(mother_name)
   epochs_already_done = scheduler.last_epoch
-  # print(epochs_already_done)
-  # exit()
 else:
   decoder = Decoder(n_inputs, n_hidden_decoder, mother_name, device)
   optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -103,8 +111,8 @@ for e in range(epochs_already_done, n_epochs_to_run):
       for t in range(3, n_frames):
         decoding_t = decoder(I_seq[t])
         confidence = torch.abs(decoding[:, 1] - decoding[:, 0])  # decoding.detach?
-        decoding += torch.where(torch.stack([confidence]*2, dim=1) < 1.0, decoding_t, zero_evd)
-        confides[:, t] = confidence
+        decoding += torch.where(torch.stack([confidence]*2, dim=1) < confidence_treshold, decoding_t, zero_evd)
+        confides[:, t] = decoding[:, 1] - decoding[:, 0]  # confidence
 
     # Backpropagation
     loss = loss_fn(decoding, label)

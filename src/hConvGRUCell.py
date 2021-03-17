@@ -1,3 +1,5 @@
+# Taken from: https://github.com/c-rbp/pathfinder_experiments/blob/main/models/hgrucleanSEG.py
+# Paper: https://arxiv.org/abs/2010.15314
 import torch
 import torch.nn.functional as F
 from torch import nn

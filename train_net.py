@@ -11,10 +11,10 @@ from src.Jacobian_penalty import jacobian_penalty
 device = 'cuda'            # 'cuda' or 'cpu' ('cpu' never tested)
 load_model = False         # if False, create a new networks
 epoch_to_load = None       # None for last epoch; not used if load_model == False
-n_epochs_to_run = 20       # from the last epoch if load_model == True
+n_epochs_to_run = 50       # from the last epoch if load_model == True
 n_epoch_save = 5           # will save a new checkpoint every n_epoch_save
 learning_rate = 0.001      # is modified by the scheduler
-learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 5)), 'gamma': 0.5}
+learning_rate_schedule = {'milestones': list(range(0, 2*n_epochs_to_run, 10)), 'gamma': 0.5}
 P_red_loss_weight = 1.0    # unsupervised loss (try running and adjust)
 S_mse_loss_weight = 3.0    # supervised loss (segmentation, mean square error)
 S_bce_loss_weight = 1.0    # supervised loss (segmentation, cross-entropy)

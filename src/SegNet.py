@@ -82,8 +82,8 @@ class SegNet(nn.Module):
         setattr(self, 'conv_pred{}'.format(l), conv_pred)
 
     # Dropout layers just before input
-    dropout_rates = [0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
-    # dropout_rates = [0.10, 0.10, 0.10, 0.10, 0.10, 0.10]
+    # dropout_rates = [0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
+    dropout_rates = [0.10, 0.10, 0.10, 0.10, 0.10, 0.10]
     # dropout_rates = [0.20, 0.50, 0.50, 0.50, 0.50, 0.50]
     for l in range(self.n_layers):
       dropout_A = nn.Dropout(p=dropout_rates[l])
@@ -142,7 +142,7 @@ class SegNet(nn.Module):
         if t == 0 or not self.do_time_aligned:
           E_seq[l][t] = torch.zeros(batch_size, 2*self.a_channels[l], w, h).cuda()
           R_seq[l][t] = torch.zeros(batch_size, 1*self.r_channels[l], w, h).cuda()
-          if self.r_layers == 'lstm':
+          if self.r_layers[l] == 'lstm':
             L_seq[l][t] = torch.zeros(batch_size, 1*self.r_channels[l], w, h).cuda()
       w = w//2
       h = h//2

@@ -37,7 +37,7 @@ def place_patch(image_dims, frame, patch, row, col):
   col1 = max(0, min(col + patch_dims[1], image_dims[1]))
   frame[row0:row1, col0:col1] += patch[row0-row:row1-row, col0-col:col1-col]
 
-def choose_random_params(image_dims, n_frames, mode=None):
+def choose_random_params(image_dims, n_frames, mode=None, offset_test=None):
   offset = np.random.randint(1, 5)
   params1 = {
   'background_frames': 3, #np.random.randint(3, 6),
@@ -55,8 +55,8 @@ def choose_random_params(image_dims, n_frames, mode=None):
   params2 = {key: value for key, value in params1.items()}
   params2['d_col'] = -params1['d_col']
   if mode is not None:
-    offset = 1
     if 'V-' in mode:  # for tests
+      offset = 1 if offset_test == None else offset_test
       params1['barH'] = 10
       params1['barW'] = 1
       params1['spaceH'] = 1
@@ -66,10 +66,10 @@ def choose_random_params(image_dims, n_frames, mode=None):
       params1['d_col'] = offset//2 + 2
       params2 = {key: value for key, value in params1.items()}
       params2['d_col'] = -params1['d_col']
-    if mode == 'V' or mode == 'V-0':
+    if mode == 'V' or mode == 'V-0':  # for V condition (train or test)
       params1['offsetW'] = np.array([offset,] + [0]*(n_frames-1))
       params2['offsetW'] = np.array([offset,] + [0]*(n_frames-1))
-    if 'V-AV' in mode or 'V-PV' in mode:
+    if 'V-AV' in mode or 'V-PV' in mode:  # for tests
       APV_frame = int(mode[-1])
       side = np.random.randint(0, 2)
       APV_side = 1-side if 'V-AV' in mode else side
@@ -77,11 +77,13 @@ def choose_random_params(image_dims, n_frames, mode=None):
       params1['side'] = np.array([side,] + [0]*(APV_frame-1) + [APV_side,] + [0]*(n_frames-APV_frame-1))
       params2['offsetW'] = np.array([offset,] + [0]*(n_frames-1))
       params2['side'] = np.array([side,] + [0]*(n_frames-1))
+      # params2['offsetW'] = np.array([offset,] + [0]*(APV_frame-1) + [offset,] + [0]*(n_frames-APV_frame-1))
+      # params2['side'] = np.array([side,] + [0]*(APV_frame-1) + [APV_side,] + [0]*(n_frames-APV_frame-1))
   return params1, params2
 
-def draw_sequence(image_dims, n_frames, noise_level, mode=None):
+def draw_sequence(image_dims, n_frames, noise_level, mode=None, offset_test=None):
   sequence = np.zeros((n_frames,) + image_dims)
-  p1, p2 = choose_random_params(image_dims, n_frames, mode)
+  p1, p2 = choose_random_params(image_dims, n_frames, mode, offset_test)
   background = p1['background_color']*np.ones(image_dims)
   for t in range(n_frames):
     frame = background*1
@@ -106,7 +108,7 @@ def sqm_to_dvs(sequence, n_frames):
     dvs_sequence[t] = dvs_sequence[t] - smaller + bigger
   return dvs_sequence
 
-def create_epoch(n_samples, image_dims, n_frames, noise_level=0.0, do_dvs=False, do_transform=False, mode=None):
+def create_epoch(n_samples, image_dims, n_frames, noise_level=0.0, do_dvs=False, do_transform=False, mode=None, offset_test=None):
 
   t0 = time.time()
   final_image_dims = image_dims
@@ -116,7 +118,7 @@ def create_epoch(n_samples, image_dims, n_frames, noise_level=0.0, do_dvs=False,
   samples = np.zeros((n_samples, n_frames) + image_dims)
   labels = np.zeros((n_samples))
   for b in range(n_samples):
-    sample, label = draw_sequence(image_dims, n_frames, noise_level, mode=mode)
+    sample, label = draw_sequence(image_dims, n_frames, noise_level, mode=mode, offset_test=offset_test)
     samples[b] = sample if do_dvs == False else sqm_to_dvs(sample, n_frames)
     labels[b] = label
 
